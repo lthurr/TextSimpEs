@@ -1,0 +1,20 @@
+<table style="width:100%">
+  <tr>
+    <td>Original</td>
+    <td>Complex marks</td>
+  </tr>
+  <tr>
+    <td>
+      {{ original_text }}
+    </td>
+    <td>
+      {% for word in original_text.split() %}
+        {% if word in complex_words %}
+          <font color="red">{{ word }}</font>
+        {% else %}
+          {{ word }}
+        {% endif %}
+      {% endfor %}
+    </td>
+  </tr>
+</table>
