@@ -1,0 +1,262 @@
+INFORME
+
+--- Introducción ---
+Imaginemos el proceso mental natural de una persona para identificar las palabras más complejas en un texto dado. Supongamos ahora que tenemos un diccionario un poco distinto al usual, que en lugar de presentarnos la definición de alguna palabra nos presente una de las siguientes opciones "Simple" o "Complejo".
+¿De qué manera podríamos identificar las palabras complejas dentro de un texto?
+Muy fácil, buscaríamos palabra por palabra en nuestro diccionario de complejidad, e iriamos marcando las que nuestro diccionario nos diga que es "Compleja".
+En este informe relataremos el procedimiento que se llevó a cabo en nuestro Simplificador de Texto, tanto en el desarrollo del 'diccionario de complejidad' como en el proceso de 'buscar en el diccionario'.
+
+--- Definiciones iniciales ---
+La herramienta Simplificadora de Texto para el español que vamos a presentar en éste informe lleva el nombre de Complefica dado que indentifica las palabras complejas en un texto.
+Complefica es el resultado de un proyecto para la cátedra de Procesamiento de Lenguaje Natural a cargo de Laura Alemani. Es una herramienta inicial que dado un texto y un nivel de procesamiento dado por el usuario identifica las palabras que cree que son complejas en base a un modelo de aprendizaje.
+
+--- Descripción del corpus y recolección de información ---
+Lleva el nombre de Corpus al recurso compuesto por una cantidad numerosa y estructurada de datos, que se requieren para hacer análisis estadístico y en, este caso, para aprender un modelo de lenguaje através de él.
+Dada la escasez de recursos de éste tipo para una herramienta de Simplificación de Texto para el español, decidí crear dicho recurso. En la red existe Vikidia, que es una enciclopedia online con formato Wiki, al estilo Wikipedia, escrita por y para chicos y jóvenes de 8 a 13 años. Con la intención de hacer el contenido más simple al entendimiento de los consumidores, permitiendo a ellos mismos escribir qué entendieron de un concepto en particular con palabras simples para ellos.
+Dado este recurso se creó un wrapper que recolecte la información de sus 3700 artículos y proveerlos en formato de texto plano.
+La API que provee Wikimedia (la plataforma donde está montada Vikidia) solo hace posible acceder a los contenidos de los artículos en el formato en que están escritos, ésto hizo que todos sus artículos tengan wiki markups, y etiquetas HTML.
+El wrapper se encargó de quitar y omitir éstos markups, para poner a disposición solo la información de los artículos de manera que puedan ser luego procesados sin la necesidad de pensar en la presencia de ésta sintaxis.
+
+--- Preproceso del corpus: ---
+En el corpus se identificaron detalles que pueden ser considerados molestos para nuestra herramienta de Simplificación de Texto.
+Para una computadora los objetos "Perro" y "perro", son considerados distintos. Pese a que semánticamente en nuestra lengua sea lo mismo, y de hecho si buscamos la palabra "perro" en nuestro diccionario de complejidad, seguramente se mostraría como "Perro" (notar mayúsculas). Para ello, en el preproceso del corpus intenté manejar estos detalles con precacución.
+
+El primer método empleado en el preproceso fue el de -Minusculización- el cual consiste en llevar el objeto "Perro" al objeto "perro", para que nuestra herramienta de simplificación los reconozca idénticamente iguales y, a su vez, interpretándolos iguales bajo la semantica de nuestra lengua.
+
+El segundo método empleado, fue el de -Omitidor de signos de puntuación-. La razón principal de la presencia de éste método es la misma que para el método anterior.
+A los propósitos de un simplificador de texto, no es necesario que consideremos los signos de puntuación. Por lo tanto, bajo la presencia de ésto método (y el anterior) el objeto "¿Ese es un perro?" es visto como "ese es un perro".
+
+El tercero método empleado, llamado -Numerificador-, es el de considerar a los números como una sola entidad general. Asumimos que los números son iguales de complejos (o simples) por lo tanto, no es necesario distinguir entre el número 9 y el 276. 
+Como resultado de éste método, consideraremos al 9 y al 276 simplemente como "NUMBER".
+Llevandolo a la analogía de nuestro diccionario de complejidad, simplemente bastaría con buscar qué tal probable es la clase "NUMBER". 
+Nuestro simplificador de texto considera a "NUMBER" como algo simple.
+
+Los tres métodos descriptos resuelven el problema que tiene la computadora de no conocer la semántica del español. De ésta manera, le enseñamos qué cosas tiene que identificar como iguales, y cuales no.
+
+--- ¿Cómo sabe mi simplificador de texto cuál palabra es simple o cuál es compleja? ---
+Para ello construimos un modelo de lenguaje, del cual vamos a aprender ésto.
+Un modelo de lenguaje es un conjunto de reglas y patrones que permite a una entidad aprender desiciones en base a dichas reglas.
+Utilizamos una herramienta llamada srlim que nos ayude a crear éste modelo de lenguaje.
+Srlim provee un conjunto de programas de gran utilidad para crear y aplicar modelos de lenguaje estadisticos.
+La herramienta mencionada provee de un programa llamado ngram-count, el cual dado un texto obtenemos como resultado el texto separado en n-gramas con las ocurrencias de dicho n-grama en el texto.
+
+Un n-grama es una secuencia de n items de una secuencia de texto.
+
+Podemos explicar qué hace ngram-count con el siguiente ejemplo:
+
+Si tenemos el siguiente texto a analizar: "Firulais captura el periódico desde el aire, y hasta lo puede levantar desde el suelo."
+
+Si consideraramos hasta los n-gram con n=2 (llamados también bigramas), obtenemos el siguiente resultado:
+([Firulais, 1], [captura, 1], [el, 2], [periódico, 1], [desde, 2], ...)
+([(desde, el), 2], [(captura, el), 1], ...)
+
+Podemos notar que el unigrama (periódico) ocurrió 1 vez en el texto, mientras el bigrama (desde, el) ocurrió 2 veces.
+
+De ésta forma vamos a construir nuestro modelo de lenguaje.
+
+Al programa ngram-count vamos a darle como entrada nuestro corpus de articulos simples preprocesado obtenido desde Vikidia.
+
+Dada la magnitud del corpus, obtendremos resultados con ocurrencias que rondan las centenas. Es por eso que vamos a considerar que las palabras que ocurran una menor cantidad de veces a un cierto umbral son consideradas complejas.
+
+¿Cómo definimos el umbral?
+Tenemos varias técnicas.
+- Ad-hoc: Definir el umbral como una constante dictada por el programador. Por ej, 5.
+- La media de las ocurrencias de los unigramas:
+	Sea k1, ..., kn la cantidad de ocurrencias de los n unigramas dentro del corpus simple, se define UMBRAL como, UMBRAL = floor(sum([k1, ..., kn]) / n)
+- La media de las ocurrencias con parámetro de ajuste:
+	UMBRAL = floor(sum([k1, ..., kn]) / n)*B donde B es un número entre 0 y 1.
+- La media de ngramas ajustado:
+	Sea mk la media de las ocurrencias de los k-gramas.
+	Y sea Bk su respectivo parámetro de ajuste.
+	Podemos definir UMBRAL = sum(mk*Bk)
+
+Para ayudar a entender mejor ésto, voy a dar un ejemplo ilustrativo para el umbral de la media de las ocurrencias de los unigramas.
+Como se mencionó, aquí se consideran los unigramas que nos dió srlim. Usted puede basarse en el ejemplo al final de éste informe y tomarlo como modelo de lenguaje. El umbral de éste tipo solo calculara el promedio de los números presentados allí.
+
+Nuestro simplificador de texto obtiene la cantidad de ocurrencias basándose en su contexto. ¿Cómo es ésto? Vamos a prestarle atención no solo a la palabra a analizar, sino a sus palabras vecinas hasta un grado 2 de distancia.
+
+Esto es lo que se definió al inicio del informe como "nivel de procesamiento".
+
+Sea w la palabra que queremos ver si es compleja. 
+Sea w0, w1, w2, w3 las palabras que son vecinas de w. 
+Es decir, w está dispuesta en el texto de la siguiente forma w0 w1 w w2 w3
+Sea k0, la cantidad de ocurrencias de la palabra w en nuestro modelo.
+Sea k1, la cantidad de co-ocurrencias de las palabras w1 w.
+Sea k2, la cantidad de co-correncias de laspalabras w w2.
+Sea k3, la cantidad de co-ocurrencias de las palabras w0 w1 w.
+Sea k4, la cantidad de co-ocurrencias de las palabras w w2 w3.
+Si UMBRAL > sum(k0, ..., k4), entonces w es una palabra compleja.
+
+Si deseamos un nivel de complejidad 1, Complefica no tendrá en cuenta el contexto. Y solo contará las ocurrencias de la palabra w que queremos ver si es compleja.
+Si deseamos un nivel de complejidad 2, Complefica le prestará atención a sus palabras vecinas con un grado de distancia.
+Si deseamos un nivel de complejidad 3, Complefica considera hasta un grado 2 de sus palabras vecinas.
+
+De ésta manera pudimos crear un modelo de lenguaje del cual aprendimos qué palabras son frecuentes y cuáles no.
+
+--- Sin ir al detalle, ¿Cómo funciona Complefica? ---
+Complefica necesita saber dos cosas. ¿Qué texto vamos a analizar? ¿Qué nivel de procesamiento deseas?
+Dado el nivel de procesamiento, Complefica revisará palabra por palabra en el texto a analizar.
+Con los datos calculados en base a la ocurrencia de la palabra a investigar, podemos identificar si es "Compleja" o "Simple" si es mayor o menor al Umbral, respectivamente.
+En caso de ser "Compleja", Complefica lo identificará.
+
+--- ¿Qué tipo de proceso se le hace al texto a analizar? ---
+El texto a analizar se somete al proceso de minusculización, numeralización y omitidor de signos de puntuación. Para estar acorde a nuestro modelo de lenguaje aprendido.
+
+--- Mejoras y trabajo futuro ---
+Complefica no identifica a un nombre propio como una palabra simple. Esto podría ser implementado para hacer mas eficiente la herramienta.
+Dado que actualmente Complefica marca los nombres de ciudades y personas como palabras complejas.
+
+Se puede atacar ésta falta desde dos lados, inicialmente:
+
+Implementar una heurística del estilo.
+	"Si la palabra comienza con mayúscula y no tiene un punto a la izquierda, entonces es un nombre propio."
+	"Si dos palabras seguidas empiezan con mayúsculas cada una, entonces es un nombre propio."
+
+O incluso, considerar un diccionario de nombres propio como gazzetter.
+
+El proceso de búsqueda y cálculo de cantidad de ocurrencias de una palabra no es eficiente. Para analizar un texto de 150 palabras se requiere un poco menos de 1 minuto. Lo cual no permite extender esta herramienta y servirla como una aplicación web.
+Se puede atacar éste problema ordenando alfabeticamente el corpus preprocesado y hacer una búsqueda alfabética. Por el momento Complefica busca en el corpus entero, discriminando la letra con la que empieza cada palabra.
+
+Otro item que puede considerarse para mejorar la herramienta es el de llevar a los verbos a su modo inifinitivo. De esta forma podemos dejar de considerar como complejos ciertos verbos que por su conjugación verbal aparezcan una cantidad pequeña de veces en nuestro modelo de lenguaje. Lo cual no significa que necesariamente sean complejas. Si no que la presencia de dicho verbo conjugado quizás no es usado mucho, pero en su modo infinitivo puede ser considerado simple.
+En caso de añadir esta feature, debería considerarse añadirlo tanto en el preproceso del corpus como el proceso del texto a analizar.
+
+--- Ejemplo de demostración ---
+
+Si ejecutamos el comando ./TS_main.py noticia_compleja.txt 1
+Donde noticia_compleja.txt contiene el texto a analizar, y 1 es el grado de procesamiento más bajo. Obtenemos el siguiente resultado.
+
+Palabras complejas:  jeremías, benítez, gómez, siesta, disparo, presuntamente, antagónicas, ampliación, cabildo, informaron, policiales, perdía, sustento, pasaron, abrieron, inmueble, adonde, investigado, homicidios, detenidas, policial, periferia
+
+N-gram: (un), amount: 6829
+N-gram: (chico), amount: 12
+N-gram: (de), amount: 36455
+N-gram: (apenas), amount: 25
+N-gram: (NUMBER), amount: 14785
+N-gram: (años), amount: 697
+N-gram: (identificado), amount: 6
+N-gram: (como), amount: 3091
+N-gram: (jeremías), amount: 0
+N-gram: (alan), amount: 6
+N-gram: (benítez), amount: 0
+N-gram: (de), amount: 36455
+N-gram: (gómez), amount: 4
+N-gram: (murió), amount: 73
+N-gram: (hoy), amount: 108
+N-gram: (a), amount: 8544
+N-gram: (la), amount: 20403
+N-gram: (siesta), amount: 0
+N-gram: (luego), amount: 297
+N-gram: (de), amount: 36455
+N-gram: (haber), amount: 92
+N-gram: (recibido), amount: 9
+N-gram: (un), amount: 6829
+N-gram: (disparo), amount: 3
+N-gram: (de), amount: 36455
+N-gram: (arma), amount: 20
+N-gram: (de), amount: 36455
+N-gram: (fuego), amount: 71
+N-gram: (al), amount: 2783
+N-gram: (quedar), amount: 8
+N-gram: (en), amount: 15523
+N-gram: (medio), amount: 272
+N-gram: (presuntamente), amount: 1
+N-gram: (de), amount: 36455
+N-gram: (una), amount: 5888
+N-gram: (pelea), amount: 121
+N-gram: (entre), amount: 1119
+N-gram: (bandas), amount: 15
+N-gram: (antagónicas), amount: 0
+N-gram: (en), amount: 15523
+N-gram: (barrio), amount: 17
+N-gram: (ampliación), amount: 3
+N-gram: (cabildo), amount: 3
+N-gram: (de), amount: 36455
+N-gram: (la), amount: 20403
+N-gram: (ciudad), amount: 769
+N-gram: (de), amount: 36455
+N-gram: (córdoba), amount: 22
+N-gram: (informaron), amount: 0
+N-gram: (fuentes), amount: 66
+N-gram: (policiales), amount: 0
+N-gram: (otra), amount: 227
+N-gram: (versión), amount: 53
+N-gram: (que), amount: 10950
+N-gram: (perdía), amount: 0
+N-gram: (sustento), amount: 0
+N-gram: (por), amount: 5405
+N-gram: (estas), amount: 242
+N-gram: (horas), amount: 79
+N-gram: (es), amount: 9103
+N-gram: (que), amount: 10950
+N-gram: (la), amount: 20403
+N-gram: (criatura), amount: 8
+N-gram: (recibió), amount: 26
+N-gram: (el), amount: 17878
+N-gram: (impacto), amount: 23
+N-gram: (por), amount: 5405
+N-gram: (personas), amount: 319
+N-gram: (que), amount: 10950
+N-gram: (pasaron), amount: 4
+N-gram: (frente), amount: 79
+N-gram: (a), amount: 8544
+N-gram: (su), amount: 4437
+N-gram: (casa), amount: 141
+N-gram: (y), amount: 15258
+N-gram: (abrieron), amount: 0
+N-gram: (fuego), amount: 71
+N-gram: (contra), amount: 319
+N-gram: (el), amount: 17878
+N-gram: (inmueble), amount: 1
+N-gram: (la), amount: 20403
+N-gram: (criatura), amount: 8
+N-gram: (falleció), amount: 40
+N-gram: (en), amount: 15523
+N-gram: (el), amount: 17878
+N-gram: (hospital), amount: 7
+N-gram: (príncipe), amount: 48
+N-gram: (de), amount: 36455
+N-gram: (asturias), amount: 12
+N-gram: (de), amount: 36455
+N-gram: (villa), amount: 60
+N-gram: (el), amount: 17878
+N-gram: (libertador), amount: 13
+N-gram: (adonde), amount: 1
+N-gram: (alcanzó), amount: 15
+N-gram: (a), amount: 8544
+N-gram: (ser), amount: 1025
+N-gram: (trasladado), amount: 6
+N-gram: (por), amount: 5405
+N-gram: (un), amount: 6829
+N-gram: (familiar), amount: 13
+N-gram: (por), amount: 5405
+N-gram: (el), amount: 17878
+N-gram: (caso), amount: 150
+N-gram: (que), amount: 10950
+N-gram: (está), amount: 831
+N-gram: (siendo), amount: 242
+N-gram: (investigado), amount: 2
+N-gram: (por), amount: 5405
+N-gram: (personal), amount: 28
+N-gram: (del), amount: 6671
+N-gram: (departamento), amount: 61
+N-gram: (homicidios), amount: 1
+N-gram: (no), amount: 2224
+N-gram: (hay), amount: 484
+N-gram: (personas), amount: 319
+N-gram: (detenidas), amount: 0
+N-gram: (hay), amount: 484
+N-gram: (un), amount: 6829
+N-gram: (amplio), amount: 22
+N-gram: (operativo), amount: 30
+N-gram: (policial), amount: 1
+N-gram: (en), amount: 15523
+N-gram: (todo), amount: 447
+N-gram: (ese), amount: 188
+N-gram: (sector), amount: 35
+N-gram: (de), amount: 36455
+N-gram: (la), amount: 20403
+N-gram: (periferia), amount: 2
+N-gram: (sudeste), amount: 8
+N-gram: (de), amount: 36455
+N-gram: (la), amount: 20403
+N-gram: (capital), amount: 881

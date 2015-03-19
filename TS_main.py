@@ -72,10 +72,10 @@ def count_ngrams(text_to_analyse, n_gram_argument):
 					if len(n_gram_list) == i:
 						if match_ngrams(n_gram, n_gram_list):
 							n_gram_amout = int(amount)
-							print "INFO: N-gram: (%s), amount: %s" % (', '.join(n_gram), n_gram_amout)
+							#print "INFO: N-gram: (%s), amount: %s" % (', '.join(n_gram), n_gram_amout)
 							break
 				if n_gram_amout == 0:
-					print "INFO: N-gram: (%s), amount: 0" % ', '.join(n_gram)
+					#print "INFO: N-gram: (%s), amount: 0" % ', '.join(n_gram)
 					pass
 				result[', '.join(n_gram)] = n_gram_amout
 	return result
@@ -126,7 +126,8 @@ if __name__ == '__main__':
 	assert len(args) <= 2 and len(args) > 0, show_help()
 	assert args[0].endswith('.txt'), show_help()
 	n_gram_argument = 3
-	UMBRAL = umbral_0()
+	UMBRAL = umbral_1()
+	print "Umbral usado %d" % UMBRAL
 	text_to_analyse = args[0]
 	if len(args) == 2:
 		n_gram_argument = int(args[1])
